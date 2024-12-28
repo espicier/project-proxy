@@ -15,8 +15,17 @@ while 1:
     (recieved_connection, client_tsap) = clientside_socket.accept()
     print("Connection from ", client_tsap)
     message = recieved_connection.recv(1024).decode('utf-8')
-    
-    print(message)
+    # Extract de l'url pour récupérer les infos du serveur de destination
+    url = message.split('\n')[0].split(' ')[1]
+    print('url:', url)
+    server_infos = flt.split_url(url)
+
+    # On retire les lignes problématiques
+    cleaned = flt.remove_problematic_lines(message)
+    print(cleaned)
+
+    # On envoie le message cleaned au serveur, avec les infos qu'on a extract
+    sys.exit(1)
 
 
 # à déterminer : comment on gère deux sockets avec du transfert de données entre les deux

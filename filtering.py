@@ -14,4 +14,25 @@ def filter_content(message):
 
 # Enlève les lignes problématiques trouvées dans le message
 def remove_problematic_lines(message):
-    return message
+    print('=== REMOVING PROBLEMATIC LINES:')
+    splitted = message.split('\n')
+    to_keep = message.split('\n')
+    to_remove = get_problematic_lines()
+    result = ''
+    for line in splitted:
+        for j in to_remove:
+            if line.upper().startswith(j.upper()):
+                to_keep.remove(line)
+    for line in to_keep:
+        result += line + '\n'
+    print('=== DONE')
+    return result
+
+# Donne une liste des lignes problématiques, à enlever d'un message.
+def get_problematic_lines():
+    # dans un premier temps, on va juste faire avec une liste en dur. Le but sera d'aller lire le fichier de config pour avoir la liste.
+    return [
+        'Connection',
+        'Proxy-Connection',
+        'Accept-Encoding'
+    ]
