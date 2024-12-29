@@ -1,6 +1,15 @@
+import re
+
 # Retourne le nom du serveur, le port et le document à partir de l'url
 def split_url(url):
-    return ('', '','')
+    split_url_avec_port = re.compile(r'[^:]://([a-zA-Z0-9\-]+):(\d+)/(.*)$')
+    split_url_sans_port = re.compile(r'[^:]://([a-zA-Z0-9\-]+)/(.*)$')
+    resultat = split_url_avec_port.search(url)
+    if resultat:
+        return resultat.groups()
+    resultat = split_url_sans_port.search(url)
+    if resultat:
+        return resultat.groups()
 
 # Prend une réponse avec une balise html title, et insert du texte après la première balise trouvée.
 def add_text_to_title(message, text):
