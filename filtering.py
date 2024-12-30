@@ -2,12 +2,21 @@ import re
 
 # Retourne le nom du serveur, le port et le document à partir de l'url
 def split_url(url):
-    split_url_avec_port = re.compile(r'[^:]://([a-zA-Z0-9\-]+):(\d+)/(.*)$')
-    split_url_sans_port = re.compile(r'[^:]://([a-zA-Z0-9\-]+)/(.*)$')
-    resultat = split_url_avec_port.search(url)
+    split_url_avec_port_http = re.compile(r'[^:]://([a-zA-Z0-9\-]+):(\d+)/(.*)$')
+    split_url_sans_port_http = re.compile(r'[^:]://([a-zA-Z0-9\-]+)/(.*)$')
+    resultat = split_url_avec_port_http.search(url)
     if resultat:
         return resultat.groups()
-    resultat = split_url_sans_port.search(url)
+    resultat = split_url_sans_port_http.search(url)
+    if resultat:
+        return resultat.groups()
+
+    split_url_avec_port_tls = re.compile(r'([a-zA-Z0-9\-,.]+):(\d+)$')
+    split_url_sans_port_tls = re.compile(r'([a-zA-Z0-9\-,.]+)$')
+    resultat = split_url_avec_port_tls.search(url)
+    if resultat:
+        return resultat.groups()
+    resultat = split_url_sans_port_tls.search(url)
     if resultat:
         return resultat.groups()
 

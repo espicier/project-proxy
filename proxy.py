@@ -12,13 +12,15 @@ clientside_socket.bind((clientside_address, clientside_port))
 clientside_socket.listen(socket.SOMAXCONN)
 
 while 1:
-    (recieved_connection, client_tsap) = clientside_socket.accept()
+    (received_connection, client_tsap) = clientside_socket.accept()
     print("Connection from ", client_tsap)
-    message = recieved_connection.recv(1024).decode('utf-8')
+    message = received_connection.recv(1024).decode('utf-8')
+    print(message)
     # Extract de l'url pour récupérer les infos du serveur de destination
     url = message.split('\n')[0].split(' ')[1]
     print('url:', url)
     server_infos = flt.split_url(url)
+    print('server_infos:', server_infos)
 
     # On retire les lignes problématiques
     cleaned = flt.remove_problematic_lines(message)
