@@ -46,6 +46,7 @@ while 1:
 
         remote_server_connection(remote_server_infos)
         print("ouverture tunnel communication serveur réussi")
+
         # informer client avec réponse HTTP que tunnel de communication ouvert
         successful_connection_notification = "HTTP/1.0 200 OK"
         received_connection.sendall(successful_connection_notification.encode('utf-8'))
@@ -79,29 +80,35 @@ while 1:
 
     if request_type =='GET':
         # traitement
-        cleaned = flt.remove_problematic_lines(request)
-        final_request = flt.modify_http_version(cleaned)  # ppur utiliser HTTP/1.0
+        #cleaned = flt.remove_problematic_lines(request)
+        #final_request = flt.modify_http_version(cleaned)  # ppur utiliser HTTP/1.0
 
         remote_server_connection(remote_server_infos)
-        serverside_connection_socket.sendall(final_request.encode('utf-8'))
-        server_response = serverside_connection_socket.recv(1024)
-        if not server_response:
-            print("oups le vent")
-        else :
-            received_connection.sendall(server_response)
+        serverside_connection_socket.sendall(request.encode('utf-8'))
+        while 1 :
+            server_response = serverside_connection_socket.recv(1024)
+            print(server_response.decode('utf-8'))
+            if not server_response:
+                print("oups le vent")
+                break
+            else :
+                received_connection.sendall(server_response)
+                print("message transmis")
+                # comment couper la communication ?
+
 
     if request_type =='POST':
         # récupérer les données à transmettre
-        data_lenght = request.split('\n')[3].split(' ')[1]
-        data =  request.split('\n')[-1]
-        if data_lenght > len(data) :
-            data = request.split('\n')[-2] + data
+        # data_lenght = request.split('\n')[3].split(' ')[1]
+        # data =  request.split('\n')[-1]
+        # if data_lenght > len(data) :
+        #     data = request.split('\n')[-2] + data
 
         cleaned = flt.remove_problematic_lines(request)
         final_request = flt.modify_http_version(cleaned)
 
         remote_server_connection(remote_server_infos)
-        serverside_connection_socket.sendall(data.encode('utf-8')) # transmettre simplement données ?
+        serverside_connection_socket.sendall(final_request.encode('utf-8')) # transmettre simplement données ?
 
     serverside_connection_socket.close()
     received_connection.close()

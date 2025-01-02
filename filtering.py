@@ -1,20 +1,22 @@
-import re, requests
+import re, requests, socket
 
 visited_pages = {}
 
 
 # Retourne le nom du serveur, le port et le document à partir de l'url
 def split_url(url):
-    url_avec_port_http = re.compile(r'([^:]+)://([a-zA-Z0-9\.\-]+):(\d+)/(.*)$')
-    url_sans_port_http = re.compile(r'([^:]+)://([a-zA-Z0-9\.\-]+)/(.*)$')
+    url_avec_port_http = re.compile(r'[^:]+://([a-zA-Z0-9\.\-]+):(\d+)/(.*)$')
+    url_sans_port_http = re.compile(r'[^:]+://([a-zA-Z0-9\.\-]+)/(.*)$')
     default_port = '80'
     resultat = url_avec_port_http.search(url)
     if resultat:
         return list(resultat.groups())
     resultat = url_sans_port_http.search(url)
     if resultat:
+        print(1)
         resultat = list(resultat.groups())# 80 = port par défaut
-        resultat.append(default_port)
+        print(resultat)
+        resultat.insert(1, default_port)
         return resultat
 
     url_avec_port_tls = re.compile(r'([a-zA-Z0-9\-,.]+):(\d+)$')
@@ -25,7 +27,7 @@ def split_url(url):
     resultat = url_sans_port_tls.search(url)
     if resultat:
         resultat = list(resultat.groups())
-        resultat.append(default_port)
+        resultat.insert(1, default_port)
         return resultat # 80 = port par défaut
 
 # Prend une réponse avec une balise html title, et insert du texte après la première balise trouvée.
