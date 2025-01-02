@@ -1,4 +1,4 @@
-import os, socket, sys
+import socket, sys, select, webbrowser
 
 import filtering as flt
 
@@ -14,9 +14,11 @@ clientside_socket.listen(socket.SOMAXCONN)
 # Socket côté serveur pour connection serveur web :
 serverside_connection_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # pb : doit être ré-ouverte à chaque tunnel
 
+# Pour avoir un cache des sites web les + visités
+compteur = {}
 
 
-def remote_server_connection(remote_server_infos, request):
+def remote_server_connection(remote_server_infos):
 
     remote_server_address = socket.gethostbyname(remote_server_infos[0])
     remote_server_port = int(remote_server_infos[1])
@@ -27,64 +29,83 @@ def remote_server_connection(remote_server_infos, request):
         print(e.args)
         sys.exit(1)
 
-    # informer client avec réponse HTTP que tunnel de communication ouvert
-    successful_connection_notification = "HTTP/1.1 200 OK"
-    received_connection.sendall(successful_connection_notification.encode('utf-8'))
-    print("Remote server connection = tunnel established")
-
 
 
 while 1:
     (received_connection, client_tsap) = clientside_socket.accept()
     print("Connection from ", client_tsap)
-    connect_tunnel = received_connection.recv(1024).decode('utf-8')
+    request = received_connection.recv(1024).decode('utf-8')
 
     # Extract de l'url pour récupérer les infos du serveur de destination
-    url = connect_tunnel.split('\n')[0].split(' ')[1]
+    request_type = request.split('\n')[0].split(' ')[0]
+    url = request.split('\n')[0].split(' ')[1]
     remote_server_infos = flt.split_url(url)
     print("server_infos: ", remote_server_infos)
 
-    # On retire les lignes problématiques
-    # On envoie le message cleaned au serveur, avec les infos qu'on a extract
-    cleaned = flt.remove_problematic_lines(connect_tunnel)
-    request = flt.modify_http_version(cleaned) # ppur utiliser HTTP/1.0
-    print("final request: ", request)
+    if request_type =='CONNECT': # gestion d'une connection TLS
 
-    remote_server_connection(remote_server_infos, request)
-    print("ouverture tunnel communication serveur réussi")
+        remote_server_connection(remote_server_infos)
+        print("ouverture tunnel communication serveur réussi")
+        # informer client avec réponse HTTP que tunnel de communication ouvert
+        successful_connection_notification = "HTTP/1.0 200 OK"
+        received_connection.sendall(successful_connection_notification.encode('utf-8'))
 
-    # transfert paquets dans les 2 sens par le proxy une fois le tunnel établi
-    while 1:
-        pid = os.fork()
-        if pid == 0:
-            requete = received_connection.recv(1024)
-            print("requete :", requete)
-            if not requete:
-                print("oups requete")
-                received_connection.close()
-                serverside_connection_socket.close()
+        # Filtrage des communications en interdisant l’accès à certains sites en fonction de leur contenu
+        # if flt.filter_content(remote_server_infos[0]):
+        #     print("== ACCES INTERDIT ==")
+        #     received_connection.close()
+        #     continue # à modifier
+
+        # transfert paquets dans les 2 sens par le proxy une fois le tunnel établi
+        surveillance = [received_connection, serverside_connection_socket]
+        (evnt_entree, evnt_sortie, evnt_exception) = select.select(surveillance, [], [])
+        for side in evnt_entree:
+        # recevoir des données côté serveur web ou navigateur
+            message = side.recv(1024)
+            print("requête", message.decode('utf-8'))
+            if not message:
+                print("oups le vent")
                 break
-            serverside_connection_socket.sendall(requete)
-            print("let's go requete")
+            else: # les transmettre à l'autre extrémité du tunnel
+                if side==received_connection: # si message en provenance du navigateur, appliquer modifications
+                    cleaned = flt.remove_problematic_lines(message)
+                    message = flt.modify_http_version(cleaned)  # pour utiliser HTTP/1.0
+                    print("final message: ", message)
+                for other_side in evnt_entree:
+                    if other_side is not side : # que c'est moche
+                        other_side.sendall(message)
+                        print("message transmis")
 
-        else:
-            reponse = serverside_connection_socket.recv(1024)
-            print("reponse :", reponse)
-            if not reponse :
-                print("oups reponse")
-                serverside_connection_socket.close()
-                received_connection.close()
-                break
-            received_connection.sendall(reponse)
-            print("let's go reponse")
 
+    if request_type =='GET':
+        # traitement
+        cleaned = flt.remove_problematic_lines(request)
+        final_request = flt.modify_http_version(cleaned)  # ppur utiliser HTTP/1.0
+
+        remote_server_connection(remote_server_infos)
+        serverside_connection_socket.sendall(final_request.encode('utf-8'))
+        server_response = serverside_connection_socket.recv(1024)
+        if not server_response:
+            print("oups le vent")
+        else :
+            received_connection.sendall(server_response)
+
+    if request_type =='POST':
+        # récupérer les données à transmettre
+        data_lenght = request.split('\n')[3].split(' ')[1]
+        data =  request.split('\n')[-1]
+        if data_lenght > len(data) :
+            data = request.split('\n')[-2] + data
+
+        cleaned = flt.remove_problematic_lines(request)
+        final_request = flt.modify_http_version(cleaned)
+
+        remote_server_connection(remote_server_infos)
+        serverside_connection_socket.sendall(data.encode('utf-8')) # transmettre simplement données ?
+
+    serverside_connection_socket.close()
+    received_connection.close()
     print("== FIN COMMUNICATION ==")
-
-
-
-
-
-
     sys.exit(1)
 
 
