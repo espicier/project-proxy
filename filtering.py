@@ -1,6 +1,7 @@
 import re, requests, socket
+import config
 
-visited_pages = {}
+cached_pages = {}
 
 
 # Retourne le nom du serveur, le port et le document à partir de l'url
@@ -37,7 +38,7 @@ def add_text_to_title(message, text):
 
 # Filtre le contenu html, en remplaçant les mots trouvés dans le fichier de configuration 
 # par des étoiles (par exemple, je sais pas ce qui est attendu par "filtrer")
-filter_words = ["macron", "démission"]
+filter_words = config.get_filtered_words()
 def filter_content(url):
     page_web = requests.get(url) # bon fond bad form
     contenu_html = page_web.text
@@ -52,10 +53,9 @@ def filter_content(url):
 
 # Enlève les lignes problématiques trouvées dans le message
 def remove_problematic_lines(message):
-    print('=== REMOVING PROBLEMATIC LINES:')
     splitted = message.split('\n')
     to_keep = message.split('\n')
-    to_remove = get_problematic_lines()
+    to_remove = config.get_problematic_lines()
     result = ''
     for line in splitted:
         for j in to_remove:
@@ -63,25 +63,15 @@ def remove_problematic_lines(message):
                 to_keep.remove(line)
     for line in to_keep:
         result += line + '\n'
-    print('=== DONE')
     return result
-
-# Donne une liste des lignes problématiques, à enlever d'un message.
-def get_problematic_lines():
-    # dans un premier temps, on va juste faire avec une liste en dur. Le but sera d'aller lire le fichier de config pour avoir la liste.
-    return [
-        'Connection',
-        'Proxy-Connection',
-        'Accept-Encoding'
-    ]
 
 # faire des requêtes en HTTP 1.0 au lieu de 1.1
 def modify_http_version(message):
     return message.replace('HTTP/1.1','HTTP/1.0')
 
-def afficher_contenu_page(url):
-    return visited_pages[url]
+def fetch_cached_page(url):
+    return cached_pages[url]
 
-def memoriser_contenu_page(url):
+def cache_page(url):
     contenu = requests.get(url)
-    visited_pages[url] = contenu.content # idée mais pas forme
+    cached_pages[url] = contenu.content # idée mais pas forme
