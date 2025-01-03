@@ -87,86 +87,68 @@ def proxy_loop():
     print("client accepted:", client_tsap)
     print('======================= CLIENT REQUEST ======================')
     client_request = client_connection.recv(1024)
+    print(client_request)
     if client_request.startswith(b'POST'):
-        print('UN POST ! KILL IT !')
-        header, body = identify_header(client_request)
-
-        url = header.split('\n')[0].split(' ')[1]
-        remote_server_infos = flt.split_url(url)
-        print("remote server infos:", remote_server_infos)
-        serverside_socket = remote_server_connection(remote_server_infos)
-
-        request = flt.remove_problematic_lines(header)
-        request = flt.modify_http_version(request)
-        final_request = request.encode('utf-8') + body
-        serverside_socket.sendall(final_request)
-        print("formulaire envoyé")
-
-
-
-
+        str_request, body = identify_header(client_request)
     else:
         str_request = client_request.decode('utf-8')
         # Si on a une requête vide, on recommence juste une boucle en attendant des instructions du client
         if len(str_request) == 0:
-            print('=============================================================')
             return
+    print('=============================================================')
+    # Extract de l'url pour récupérer les infos du serveur de destination
+    request_type = str_request.split('\n')[0].split(' ')[0]
+    url = str_request.split('\n')[0].split(' ')[1]
+    remote_server_infos = flt.split_url(url)
 
-
-        # Extract de l'url pour récupérer les infos du serveur de destination
-        request_type = str_request.split('\n')[0].split(' ')[0]
-        url = str_request.split('\n')[0].split(' ')[1]
-        remote_server_infos = flt.split_url(url)
-
-        print("server_infos: ", remote_server_infos)
+    print("server_infos: ", remote_server_infos)
 
     # Si l'url du serveur correspond au serveur de config, on demande
-        if remote_server_infos[0] == conf.get_config_url():
-            if request_type == 'GET':
-                print('Connecting to proxy configuration :')
-                # on envoie au client le formulaire_config
-                response = ('HTTP/1.0 200 OK\nContent-Type: text/html\n\n' + conf.get_config_form() + '\n').encode(
-                    'utf-8')
-                print(response)
-                client_connection.sendall(response)
-                print('Config page sent. Waiting for response...')
-            else:
-                config = client_connection.recv(1024)
-                print('client responded with : ', config)
-                # TODO: on sauvegarde la réponse
-                conf.update_config(config.decode('utf-8'))
-            client_connection.close()
-            return
+    if remote_server_infos[0] == conf.get_config_url():
+        if request_type == 'GET':
+            print('Connecting to proxy configuration :')
+            # on envoie au client le formulaire_config
+            response = ('HTTP/1.0 200 OK\nContent-Type: text/html\n\n' + conf.get_config_form() + '\n').encode(
+                'utf-8')
+            print(response)
+            client_connection.sendall(response)
+            print('Config page sent. Waiting for response...')
+        else:
+            print('client responded with : ', client_request)
+            conf.update_config(body)
+        client_connection.close()
+        return
 
-        serverside_socket = remote_server_connection(remote_server_infos)
+    serverside_socket = remote_server_connection(remote_server_infos)
 
-        print('======================= SERVER REQUEST ======================')
-        if request_type =='CONNECT': # gestion d'une connection TLS
-            print("Connection TLS")
+    print('======================= SERVER REQUEST ======================')
+    if request_type =='CONNECT': # gestion d'une connection TLS
+        print("Connection TLS")
 
-            # informer client avec réponse HTTP que tunnel de communication ouvert
-            successful_connection_notification = "HTTP/1.1 200 OK"
-            client_connection.sendall(successful_connection_notification.encode('utf-8'))
+        # informer client avec réponse HTTP que tunnel de communication ouvert
+        successful_connection_notification = "HTTP/1.1 200 OK"
+        client_connection.sendall(successful_connection_notification.encode('utf-8'))
 
-            # transfert paquets dans les 2 sens par le proxy une fois le tunnel établi
-            tls_communication_tunnel(client_connection, serverside_socket)
+        # transfert paquets dans les 2 sens par le proxy une fois le tunnel établi
+        tls_communication_tunnel(client_connection, serverside_socket)
 
-        if request_type =='GET':
-            print("P'TIT GET")
-            # traitement
-            request = flt.remove_problematic_lines(str_request)
-            request = flt.modify_http_version(request)  # ppur utiliser HTTP/1.0
-            transmit_get_request(client_connection, serverside_socket, request=request)
-            print("fin GET")
+    if request_type =='GET':
+        # traitement
+        request = flt.remove_problematic_lines(str_request)
+        request = flt.modify_http_version(request)  # pour utiliser HTTP/1.0
+        transmit_get_request(client_connection, serverside_socket, request)
 
-
+    if request_type == 'POST':
+        request = flt.remove_problematic_lines(str_request)
+        request = flt.modify_http_version(request)
+        final_request = request.encode('utf-8') + body
+        serverside_socket.sendall(final_request)
+        print("formulaire envoyé")
     print('=============================================================')
-    # Le problème : on ferme la connexion, alors qu'on aimerai pouvoir transmettre d'autres fichiers (comme des fonts ou des images) 
-    # La solution : j'ai déplacé dans remote_server_connection la création du socket, pour en avoir un neuf à chaque itération de boucle (chaque nouvelle connexion d'un client) 
     print("Closing connection")
     client_connection.close()
     serverside_socket.close()
-    print("== FIN COMMUNICATION ==")
+    print("('================  END OF COMMUNICATION  ==================')")
 
 # ====================================== main
 
