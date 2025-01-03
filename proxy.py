@@ -79,7 +79,7 @@ def identify_header(request):
     index = request.find(b'\r\n\r\n')
     header += request[:index]
     body += request[index + 4:]
-    return str(header), body
+    return header.decode('utf-8'), body
 
 
 def proxy_loop():
@@ -93,7 +93,17 @@ def proxy_loop():
 
         url = header.split('\n')[0].split(' ')[1]
         remote_server_infos = flt.split_url(url)
+        print("remote server infos:", remote_server_infos)
         serverside_socket = remote_server_connection(remote_server_infos)
+
+        request = flt.remove_problematic_lines(header)
+        request = flt.modify_http_version(request)
+        final_request = request.encode('utf-8') + body
+        serverside_socket.sendall(final_request)
+        print("formulaire envoyé")
+
+
+
 
     else:
         str_request = client_request.decode('utf-8')
