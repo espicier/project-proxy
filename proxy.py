@@ -70,6 +70,7 @@ def proxy_loop():
     
     print("server_infos: ", remote_server_infos)
 
+    # Si l'url du serveur correspond au serveur de config, on demande
     if remote_server_infos[0] == conf.get_config_url():
         # on envoie au client le formulaire_config
         client_connection.sendall(conf.get_config_form())
