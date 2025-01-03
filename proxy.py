@@ -142,8 +142,7 @@ def proxy_loop():
         request = flt.remove_problematic_lines(str_request)
         request = flt.modify_http_version(request)
         final_request = request.encode('utf-8') + body
-        serverside_socket.sendall(final_request)
-        print("formulaire envoyé")
+        transmit_get_request(client_connection, serverside_socket, final_request)
     print('=============================================================')
     print("Closing connection")
     client_connection.close()
