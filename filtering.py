@@ -14,9 +14,7 @@ def split_url(url):
         return list(resultat.groups())
     resultat = url_sans_port_http.search(url)
     if resultat:
-        print(1)
         resultat = list(resultat.groups())# 80 = port par défaut
-        print(resultat)
         resultat.insert(1, default_port)
         return resultat
 

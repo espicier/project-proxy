@@ -18,7 +18,7 @@ def get_config_form():
             line = line.replace('id="filter"', 'id="filter" checked')
         # insérer le contenu de get_filtered_words dans 'name="mots a filtrer"></textarea>'
         if line.find('name="filter_words"></textarea>') != -1:
-            line =line.replace('name="filter_words"></textarea>', 'name="mots a filtrer">')
+            line =line.replace('name="filter_words"></textarea>', 'name="filter_words">')
             for word in get_filtered_words():
                 line += word + ','
             line = line.strip(',')
@@ -45,34 +45,31 @@ def get_config_url():
     return get_config()['url']
 
 def update_config(config_http):
+    print("Updating config :")
     # dans config : la réponse en brut reçue par le client avec le formulaire, je pense que c'est plus simple de gérer ça ici
     # faire comme ça permet de garder certains éléments de config dans le même fichier, sans les exposer via le formulaire (comme l'url d'accès), pour pouvoir le modifier côté serveur, ou l'historique, géré par la gestion du cache.
     config = get_config()
     new_config = get_config_content(config_http)
     
-    config['filter_is_on'] = new_config['filter_is_on']
-    config['filtered_words'] = new_config['filtered_words']
-    config['problematic_lines'] = new_config['problematic_lines']
-    config['title_prefix'] = new_config['title_prefix']
-
+    if new_config[b'filter']:
+        config['filter_is_on'] = 1 
+    else: 
+        config['filter_is_on'] = 0 
+    config['filtered_words'] = new_config[b'filter_words'].decode('utf-8').replace('+', ' ').split('%2C')
+    # config['problematic_lines'] = new_config[b'problematic_lines']
+    config['title_prefix'] = new_config[b'title_prefix'].decode('utf-8').replace('+', ' ')
+    print("fetch done, writing")
     with open("config.json", "w") as conf_file:
         json.dump(config, conf_file)
-    print("updating config")
+    print("config updated")
 
 # Fera un split du résultat de la requête, quand on aura pu la tester
 # Après retour via chrome sur le formulaire, le format semble être : 
 # filtrage+active=on&titre+modifie=proxy+-+&mots+a+filtrer=test%2Cmacron%2Cbrigitte%2Cdemission
 def get_config_content(http_config):
-    return{
-        'url': "proxy-superconfig.fr",
-        'filter_is_on':1,
-        'title_prefix':'proxy - ',
-        'filtered_words':["test",
-        "macron",
-        "brigitte",
-        "demission"],
-        'problematic_lines':[
-            "Connection",
-            "Proxy-Connection",
-            "Accept-Encoding"]
-    }
+    #pas sûr que ça marche
+    config = {}
+    for param in http_config.split(b'&'):
+        config[param.split(b'=')[0]] = param.split(b'=')[1]
+    print(config)
+    return config
