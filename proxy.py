@@ -88,55 +88,43 @@ def proxy_loop():
     print('======================= CLIENT REQUEST ======================')
     client_request = client_connection.recv(1024)
     if client_request.startswith(b'POST'):
-        print('UN POST ! KILL IT !')
+        # Faudrait séparer la data de la requête, là où y'a la ligne vide.
+        # sinon ça plante sur l'url decode, le body d'un post étant pas en utf-8
+        # faudrait séparer les deux, passer le body dans une variable à part, et faire en fonction
         header, body = identify_header(client_request)
-
-        url = header.split('\n')[0].split(' ')[1]
-        remote_server_infos = flt.split_url(url)
-        print("remote server infos:", remote_server_infos)
-        serverside_socket = remote_server_connection(remote_server_infos)
-
-        request = flt.remove_problematic_lines(header)
-        request = flt.modify_http_version(request)
-        final_request = request.encode('utf-8') + body
-        serverside_socket.sendall(final_request)
-        print("formulaire envoyé")
-
-
-
-
+        str_header = header
     else:
-        str_request = client_request.decode('utf-8')
-        # Si on a une requête vide, on recommence juste une boucle en attendant des instructions du client
-        if len(str_request) == 0:
-            print('=============================================================')
-            return
+        str_header = client_request.decode('utf-8')
+    # Si on a une requête vide, on recommence juste une boucle en attendant des instructions du client
+    if len(str_header) == 0:
+        return
+    print(client_request)
+    print('=============================================================')
 
+    # Extract de l'url pour récupérer les infos du serveur de destination
+    request_type = str_header.split('\n')[0].split(' ')[0]
+    url = str_header.split('\n')[0].split(' ')[1]
+    remote_server_infos = flt.split_url(url)
 
-        # Extract de l'url pour récupérer les infos du serveur de destination
-        request_type = str_request.split('\n')[0].split(' ')[0]
-        url = str_request.split('\n')[0].split(' ')[1]
-        remote_server_infos = flt.split_url(url)
-
-        print("server_infos: ", remote_server_infos)
+    print("server_infos: ", remote_server_infos)
 
     # Si l'url du serveur correspond au serveur de config, on demande
-        if remote_server_infos[0] == conf.get_config_url():
-            if request_type == 'GET':
-                print('Connecting to proxy configuration :')
-                # on envoie au client le formulaire_config
-                response = ('HTTP/1.0 200 OK\nContent-Type: text/html\n\n' + conf.get_config_form() + '\n').encode(
-                    'utf-8')
-                print(response)
-                client_connection.sendall(response)
-                print('Config page sent. Waiting for response...')
-            else:
-                config = client_connection.recv(1024)
-                print('client responded with : ', config)
-                # TODO: on sauvegarde la réponse
-                conf.update_config(config.decode('utf-8'))
-            client_connection.close()
-            return
+    if remote_server_infos[0] == conf.get_config_url():
+        if request_type == 'GET':
+            print('Connecting to proxy configuration :')
+            # on envoie au client le formulaire_config
+            response = ('HTTP/1.0 200 OK\nContent-Type: text/html\n\n' + conf.get_config_form() + '\n').encode('utf-8')
+            print(response)
+            client_connection.sendall(response)
+            print('Config page sent. Waiting for response...')
+        else:
+            print('client responded with : ', body)
+            # TODO: on sauvegarde la réponse
+            conf.update_config(body)
+        print('Closing connection')
+        print("==================== END OF COMMUNICATION ====================")
+        client_connection.close()
+        return
 
         serverside_socket = remote_server_connection(remote_server_infos)
 
