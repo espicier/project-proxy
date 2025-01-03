@@ -55,6 +55,8 @@ def proxy_loop():
         # sinon ça plante sur l'url decode, le body d'un post étant pas en utf-8
         # faudrait séparer les deux, passer le body dans une variable à part, et faire en fonction
         print('UN POST ! KILL IT !')
+        print('La victime :')
+        print(client_request)
         return
     else:
         str_request = client_request.decode('utf-8')
@@ -72,12 +74,19 @@ def proxy_loop():
 
     # Si l'url du serveur correspond au serveur de config, on demande
     if remote_server_infos[0] == conf.get_config_url():
-        # on envoie au client le formulaire_config
-        client_connection.sendall(conf.get_config_form())
-        # on attend la réponse, je pense que ça suffit de faire ça mais à tester (c'est tard)
-        config = client_connection.recv(1024)
-        # TODO: on sauvegarde la réponse
-        conf.update_config(config)
+        if request_type == 'GET':
+            print('Connecting to proxy configuration :')
+            # on envoie au client le formulaire_config
+            response = ('HTTP/1.0 200 OK\nContent-Type: text/html\n\n' + conf.get_config_form()+ '\n').encode('utf-8')
+            print(response)
+            client_connection.sendall(response)
+            print('Config page sent. Waiting for response...')
+        else:
+            config = client_connection.recv(1024)    
+            print('client responded with : ', config)
+            # TODO: on sauvegarde la réponse
+            conf.update_config(config.decode('utf-8'))
+        client_connection.close()
         return
 
     serverside_socket = remote_server_connection(remote_server_infos)
