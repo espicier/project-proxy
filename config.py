@@ -46,7 +46,7 @@ def get_filtered_words():
     return get_config()['filtered_words']
 
 def get_modified_title():
-    return get_config()['title']
+    return get_config()['title_prefix']
 
 def get_config_url():
     return get_config()['url']

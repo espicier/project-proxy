@@ -66,15 +66,17 @@ def remove_problematic_lines(message):
 def modify_http_version(message):
     return message.replace('HTTP/1.1','HTTP/1.0')
 
-def modify_title(modified_title):
+def modify_title(modified_title, content):
     re_debut_titre = re.compile(r'<title>(.*)$', re.I)
     re_fin_titre = re.compile(r'^(.*)</title>', re.I)
-    titre = ""
 
-
-def fetch_cached_page(url):
-    return cached_pages[url]
-
-def cache_page(url):
-    contenu = requests.get(url)
-    cached_pages[url] = contenu.content # idée mais pas forme
+    resultat = re_debut_titre.search(content)
+    if resultat:
+        start = resultat.start(1)
+        while 1:
+            resultat = re_fin_titre.search(content[start:])
+            if resultat:
+                end = start + resultat.end(1)
+                break
+        content = content[:start]+modified_title+content[end+1:]
+    return content
