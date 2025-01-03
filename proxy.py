@@ -136,7 +136,7 @@ def proxy_loop():
         # traitement
         request = flt.remove_problematic_lines(str_request)
         request = flt.modify_http_version(request)  # pour utiliser HTTP/1.0
-        transmit_get_request(client_connection, serverside_socket, request.encode('utf-8'))
+        transmit_get_request(client_connection, serverside_socket, request.encode('ut'))
 
     if request_type == 'POST':
         request = flt.remove_problematic_lines(str_request)
