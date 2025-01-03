@@ -3,6 +3,7 @@ import socket, sys, select, os
 
 import filtering as flt
 import config as conf
+from filtering import filter_content
 
 # ====================================== Définitions
 # Socket côté client :
@@ -33,17 +34,55 @@ def remote_server_connection(remote_server_infos):
         print(e.args)
         sys.exit(1)
 
-def transmit_http_request(client_connection, serverside_socket, request):
+def transmit_get_request(client_connection, serverside_socket, request):
     serverside_socket.sendall(request.encode('utf-8'))
     print('================== TRANSMITING RESPONSE ======================')
-    server_response = b''
     while 1 :
-        server_response = serverside_socket.recv(1024)
-        if not server_response:
+        server_response = serverside_socket.recv(1024).decode('utf-8')
+        server_response_end_test = server_response.replace(' ', '%')
+        if server_response_end_test.count('%') == len(server_response) :
             break
-        else :
-            client_connection.sendall(server_response)
-            print("Transmission d'une réponse au client")
+        else:
+            if filter_content(server_response) : # True = pas de mot interdit détecté
+                print("server response", server_response)
+                client_connection.sendall(server_response.encode('utf-8'))
+                print("Transmission d'une réponse au client")
+            else :
+                print("== ACCES INTERDIT ==")
+                return
+    return
+
+def tls_communication_tunnel(client_connection, serverside_socket):
+    surveillance = [client_connection, serverside_socket]
+    (evnt_entree, evnt_sortie, evnt_exception) = select.select(surveillance, [], [])
+    for side in evnt_entree:
+        # recevoir des données côté serveur web ou navigateur
+        message = side.recv(1024)
+        print("Request:", message.decode('utf-8'), "from", side.getpeername())
+        if not message:
+            print("No request received")
+            return
+        else:  # les transmettre à l'autre extrémité du tunnel
+            if side == client_connection:  # si message en provenance du navigateur, appliquer modifications
+                cleaned = flt.remove_problematic_lines(message)
+                message = flt.modify_http_version(cleaned)  # pour utiliser HTTP/1.0
+                print("final message: ", message)
+
+            for other_side in evnt_entree:
+                if other_side is not side:  # que c'est moche
+                    other_side.sendall(message)
+                    print("message transmis")
+
+def identify_header(request):
+    header = b''
+    body = b''
+    with open(request, 'rb') as file:
+        for line in file:
+            while line != '\n':
+                header += line.decode('utf-8')
+            body += line
+    return header, body
+
 
 def proxy_loop():
     (client_connection, client_tsap) = clientside_socket.accept()
@@ -51,92 +90,71 @@ def proxy_loop():
     print('======================= CLIENT REQUEST ======================')
     client_request = client_connection.recv(1024)
     if client_request.startswith(b'POST'):
+        print('UN POST ! KILL IT !')
         # Faudrait séparer la data de la requête, là où y'a la ligne vide. Problème : je sais pas comment gérer ça avec des bytes
         # sinon ça plante sur l'url decode, le body d'un post étant pas en utf-8
         # faudrait séparer les deux, passer le body dans une variable à part, et faire en fonction
-        print('UN POST ! KILL IT !')
-        return
+    # 1. séparer header du body
+        header, body = identify_header(client_request)
+
+
     else:
         str_request = client_request.decode('utf-8')
-    # Si on a une requête vide, on recommence juste une boucle en attendant des instructions du client
-    if len(str_request) == 0:
-        return
-    print('=============================================================')
+        # Si on a une requête vide, on recommence juste une boucle en attendant des instructions du client
+        if len(str_request) == 0:
+            print('=============================================================')
+            return
 
-    # Extract de l'url pour récupérer les infos du serveur de destination
-    request_type = str_request.split('\n')[0].split(' ')[0]
-    url = str_request.split('\n')[0].split(' ')[1]
-    remote_server_infos = flt.split_url(url)
-    
-    print("server_infos: ", remote_server_infos)
+
+        # Extract de l'url pour récupérer les infos du serveur de destination
+        request_type = str_request.split('\n')[0].split(' ')[0]
+        url = str_request.split('\n')[0].split(' ')[1]
+        remote_server_infos = flt.split_url(url)
+
+        print("server_infos: ", remote_server_infos)
 
     # Si l'url du serveur correspond au serveur de config, on demande
-    if remote_server_infos[0] == conf.get_config_url():
-        # on envoie au client le formulaire_config
-        client_connection.sendall(conf.get_config_form())
-        # on attend la réponse, je pense que ça suffit de faire ça mais à tester (c'est tard)
-        config = client_connection.recv(1024)
-        # TODO: on sauvegarde la réponse
-        conf.update_config(config)
-        return
+        if remote_server_infos[0] == conf.get_config_url():
+            print("MODE CONFIG")
+            # on envoie au client le formulaire_config
+            client_connection.sendall(conf.get_config_form())
+            # on attend la réponse, je pense que ça suffit de faire ça mais à tester (c'est tard)
+            config = client_connection.recv(1024)
+            # TODO: on sauvegarde la réponse
+            conf.update_config(config)
+            return
 
-    serverside_socket = remote_server_connection(remote_server_infos)
+        serverside_socket = remote_server_connection(remote_server_infos)
 
-    print('======================= SERVER REQUEST ======================')
-    if request_type =='CONNECT': # gestion d'une connection TLS
-        # Tu dis que ça fonctionne, je te fait confiance, j'ose pas le refacto et tout casser pour le ranger dans une fonction comme les deux autres
-        print("Connection TLS")
-        print("ouverture tunnel communication serveur réussi")
+        print('======================= SERVER REQUEST ======================')
+        if request_type =='CONNECT': # gestion d'une connection TLS
+            # Tu dis que ça fonctionne, je te fait confiance, j'ose pas le refacto et tout casser pour le ranger dans une fonction comme les deux autres
+            print("Connection TLS")
 
-        # informer client avec réponse HTTP que tunnel de communication ouvert
-        successful_connection_notification = "HTTP/1.0 200 OK"
-        client_connection.sendall(successful_connection_notification.encode('utf-8'))
+            # informer client avec réponse HTTP que tunnel de communication ouvert
+            successful_connection_notification = "HTTP/1.1 200 OK"
+            client_connection.sendall(successful_connection_notification.encode('utf-8'))
 
-        # Filtrage des communications en interdisant l’accès à certains sites en fonction de leur contenu
-        # if flt.filter_content(remote_server_infos[0]):
-        #     print("== ACCES INTERDIT ==")
-        #     received_connection.close()
-        #     continue # à modifier
+            # request = flt.remove_problematic_lines(str_request)
+            # print("request connect client side", request)
+            # serverside_socket.sendall(request.encode('utf-8'))
 
-        # transfert paquets dans les 2 sens par le proxy une fois le tunnel établi
-        surveillance = [client_connection, serverside_socket]
-        (evnt_entree, evnt_sortie, evnt_exception) = select.select(surveillance, [], [])
-        for side in evnt_entree:
-        # recevoir des données côté serveur web ou navigateur
-            message = side.recv(1024)
-            print("Request:", message.decode('utf-8'))
-            if not message:
-                print("No response recieved")
-                break
-            else: # les transmettre à l'autre extrémité du tunnel
-                if side==client_connection: # si message en provenance du navigateur, appliquer modifications
-                    cleaned = flt.remove_problematic_lines(message)
-                    message = flt.modify_http_version(cleaned)  # pour utiliser HTTP/1.0
-                    print("final message: ", message)
-                for other_side in evnt_entree:
-                    if other_side is not side : # que c'est moche
-                        other_side.sendall(message)
-                        print("message transmis")
 
-    if request_type =='GET':
-        # traitement
-        request = flt.remove_problematic_lines(str_request)
-        request = flt.modify_http_version(request)  # ppur utiliser HTTP/1.0
-        
-        transmit_http_request(client_connection, serverside_socket, request=request)
+            # transfert paquets dans les 2 sens par le proxy une fois le tunnel établi
+            tls_communication_tunnel(client_connection, serverside_socket)
 
-    if request_type =='POST':
-        # récupérer les données à transmettre
-        # data_lenght = request.split('\n')[3].split(' ')[1]
-        # data =  request.split('\n')[-1]
-        # if data_lenght > len(data) :
-        #     data = request.split('\n')[-2] + data
+        if request_type =='GET':
+            print("P'TIT GET")
+            # traitement
+            request = flt.remove_problematic_lines(str_request)
+            request = flt.modify_http_version(request)  # ppur utiliser HTTP/1.0
 
-        request = flt.remove_problematic_lines(str_request)
-        request = flt.modify_http_version(request)
+            transmit_get_request(client_connection, serverside_socket, request=request)
+            print("fin GET")
 
-        transmit_http_request(client_connection, serverside_socket, request=request)
-        # serverside_connection_socket.sendall(request.encode('utf-8')) # transmettre simplement données ? < il faut le faire en format mime
+        if request_type =='POST':
+            print("POST")
+
     print('=============================================================')
     # Le problème : on ferme la connexion, alors qu'on aimerai pouvoir transmettre d'autres fichiers (comme des fonts ou des images) 
     # La solution : j'ai déplacé dans remote_server_connection la création du socket, pour en avoir un neuf à chaque itération de boucle (chaque nouvelle connexion d'un client) 

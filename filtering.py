@@ -14,9 +14,7 @@ def split_url(url):
         return list(resultat.groups())
     resultat = url_sans_port_http.search(url)
     if resultat:
-        print(1)
         resultat = list(resultat.groups())# 80 = port par défaut
-        print(resultat)
         resultat.insert(1, default_port)
         return resultat
 
@@ -39,23 +37,22 @@ def add_text_to_title(message, text):
 # Filtre le contenu html, en remplaçant les mots trouvés dans le fichier de configuration 
 # par des étoiles (par exemple, je sais pas ce qui est attendu par "filtrer")
 filter_words = config.get_filtered_words()
-def filter_content(url):
-    page_web = requests.get(url) # bon fond bad form
-    contenu_html = page_web.text
+def filter_content(content):
     for mot in filter_words :
-        if contenu_html.find(mot) != -1:
+        if content.find(mot) != -1:
             # bloquer page web
-            return True
+            return False
         else :
             continue
-    return False
+    return True
 
 
 # Enlève les lignes problématiques trouvées dans le message
 def remove_problematic_lines(message):
     splitted = message.split('\n')
     to_keep = message.split('\n')
-    to_remove = config.get_problematic_lines()
+    # to_remove = config.get_problematic_lines()
+    to_remove = ['Connection: Keep-Alive', 'Accept-Encoding: gzip', 'Proxy-Connection: Keep-Alive']
     result = ''
     for line in splitted:
         for j in to_remove:
