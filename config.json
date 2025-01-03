@@ -1,16 +1,1 @@
-{
-    "url": "proxy-superconfig.fr",
-    "filtered_words":[
-        "test",
-        "macron",
-        "demission"
-    ],
-    "problematic_lines":[        
-        "Connection",
-        "Proxy-Connection",
-        "Accept-Encoding"
-    ],
-    "history":[
-        {"url":"p-fb.net", "visits":10} 
-    ]
-}
+{"url": "proxy-superconfig.fr", "title_prefix": "proxy - ", "filtered_words": ["test", "macron", "brigitte", "demission"], "problematic_lines": ["Connection", "Proxy-Connection", "Accept-Encoding"], "history": [], "filter_is_on": 1}
