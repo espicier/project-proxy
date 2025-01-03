@@ -152,8 +152,6 @@ def proxy_loop():
             transmit_get_request(client_connection, serverside_socket, request=request)
             print("fin GET")
 
-        if request_type =='POST':
-            print("POST")
 
     print('=============================================================')
     # Le problème : on ferme la connexion, alors qu'on aimerai pouvoir transmettre d'autres fichiers (comme des fonts ou des images) 
