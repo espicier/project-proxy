@@ -76,12 +76,10 @@ def tls_communication_tunnel(client_connection, serverside_socket):
 def identify_header(request):
     header = b''
     body = b''
-    with open(request, 'rb') as file:
-        for line in file:
-            while line != '\n':
-                header += line.decode('utf-8')
-            body += line
-    return header, body
+    index = request.find(b'\r\n\r\n')
+    header += request[:index]
+    body += request[index + 4:]
+    return str(header), body
 
 
 def proxy_loop():
@@ -91,12 +89,11 @@ def proxy_loop():
     client_request = client_connection.recv(1024)
     if client_request.startswith(b'POST'):
         print('UN POST ! KILL IT !')
-        # Faudrait séparer la data de la requête, là où y'a la ligne vide. Problème : je sais pas comment gérer ça avec des bytes
-        # sinon ça plante sur l'url decode, le body d'un post étant pas en utf-8
-        # faudrait séparer les deux, passer le body dans une variable à part, et faire en fonction
-    # 1. séparer header du body
         header, body = identify_header(client_request)
 
+        url = header.split('\n')[0].split(' ')[1]
+        remote_server_infos = flt.split_url(url)
+        serverside_socket = remote_server_connection(remote_server_infos)
 
     else:
         str_request = client_request.decode('utf-8')
@@ -115,30 +112,31 @@ def proxy_loop():
 
     # Si l'url du serveur correspond au serveur de config, on demande
         if remote_server_infos[0] == conf.get_config_url():
-            print("MODE CONFIG")
-            # on envoie au client le formulaire_config
-            client_connection.sendall(conf.get_config_form())
-            # on attend la réponse, je pense que ça suffit de faire ça mais à tester (c'est tard)
-            config = client_connection.recv(1024)
-            # TODO: on sauvegarde la réponse
-            conf.update_config(config)
+            if request_type == 'GET':
+                print('Connecting to proxy configuration :')
+                # on envoie au client le formulaire_config
+                response = ('HTTP/1.0 200 OK\nContent-Type: text/html\n\n' + conf.get_config_form() + '\n').encode(
+                    'utf-8')
+                print(response)
+                client_connection.sendall(response)
+                print('Config page sent. Waiting for response...')
+            else:
+                config = client_connection.recv(1024)
+                print('client responded with : ', config)
+                # TODO: on sauvegarde la réponse
+                conf.update_config(config.decode('utf-8'))
+            client_connection.close()
             return
 
         serverside_socket = remote_server_connection(remote_server_infos)
 
         print('======================= SERVER REQUEST ======================')
         if request_type =='CONNECT': # gestion d'une connection TLS
-            # Tu dis que ça fonctionne, je te fait confiance, j'ose pas le refacto et tout casser pour le ranger dans une fonction comme les deux autres
             print("Connection TLS")
 
             # informer client avec réponse HTTP que tunnel de communication ouvert
             successful_connection_notification = "HTTP/1.1 200 OK"
             client_connection.sendall(successful_connection_notification.encode('utf-8'))
-
-            # request = flt.remove_problematic_lines(str_request)
-            # print("request connect client side", request)
-            # serverside_socket.sendall(request.encode('utf-8'))
-
 
             # transfert paquets dans les 2 sens par le proxy une fois le tunnel établi
             tls_communication_tunnel(client_connection, serverside_socket)
