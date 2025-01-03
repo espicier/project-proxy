@@ -35,7 +35,7 @@ def remote_server_connection(remote_server_infos):
         sys.exit(1)
 
 def transmit_get_request(client_connection, serverside_socket, request):
-    serverside_socket.sendall(request.encode('utf-8'))
+    serverside_socket.sendall(request)
     print('================== TRANSMITING RESPONSE ======================')
     while 1 :
         server_response = serverside_socket.recv(1024).decode('utf-8')
@@ -136,7 +136,7 @@ def proxy_loop():
         # traitement
         request = flt.remove_problematic_lines(str_request)
         request = flt.modify_http_version(request)  # pour utiliser HTTP/1.0
-        transmit_get_request(client_connection, serverside_socket, request)
+        transmit_get_request(client_connection, serverside_socket, request.encode('utf-8'))
 
     if request_type == 'POST':
         request = flt.remove_problematic_lines(str_request)
