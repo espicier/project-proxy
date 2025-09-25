@@ -3,7 +3,7 @@
 Projet réalisé en 1ere année de master informatique Cryptis à l'Université de Limoges sous l'encadrement de Mr Pierre-François Bonnefoi dans le cadre de l'UE Protocoles & Programmation réseau. 
 ## Contributeurs
 - Anaïs Espicier : partie réseau (gestion des sockets, initiation/clotûre connections), filtrage (fichier configuration, fonctions détection/suppression), décomposition URl (REGEX)
-- Corentin Clerc : partie configuration (récupération/application arguments, formulaires JSON et HTML, 
+- Corentin Clerc : partie configuration (récupération/application arguments, formulaires JSON et HTML) 
 
 ## Description
 Un serveur proxy sert d'intermédiaire entre un serveur Web et un client Web (le navigateur) qui communiquent suivant le protocole HTTP, basé TCP.
