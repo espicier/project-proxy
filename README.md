@@ -1,4 +1,6 @@
 # Réalisation d’un proxy pour le Web (protocole HTTP)
+
+Projet réalisé en 1ere année de master informatique Cryptis en binôme avec Corentin Clerc, étudiant en M1 ISICG, à l'Université de Limoges sous l'encadrement de Mr Pierre-François Bonnefoi dans le cadre de l'UE Protocoles & Programmation réseau. 
 ## Description
 Un serveur proxy sert d'intermédiaire entre un serveur Web et un client Web (le navigateur) qui communiquent suivant le protocole HTTP, basé TCP.
 Le rôle de notre proxy est de 
